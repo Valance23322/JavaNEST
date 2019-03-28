@@ -41,7 +41,9 @@ public class JavaNEST {
     public static void main(String[] args)
     {
         JavaNEST nest = new JavaNEST();
-        System.out.println(nest.getTargetTemp());
+
+        System.out.println("Setting Target Temp to 80");
+        System.out.println(nest.setTargetTemp(80));
     }
 
     /**
@@ -93,6 +95,8 @@ public class JavaNEST {
                 .addHeader("Authorization", this.authToken)
                 .build();
 
+        //json contains the responseBody json containing all information associated with the account
+        //that the authCode has permission to view
         JSONObject json = new JSONObject(this.sendRequest(request));
 
         Iterator<String> itr = json.getJSONObject("devices").getJSONObject("thermostats").keys();
@@ -107,6 +111,7 @@ public class JavaNEST {
         }
         catch(NoSuchElementException ex)
         {
+            //If invalid input is given the iterator will run out of bounds, in that case defaults to first thermostat
             Iterator<String> itr2 = json.getJSONObject("devices").getJSONObject("thermostats").keys();
             this.deviceID = itr2.next();
             return this.deviceID;
@@ -125,6 +130,9 @@ public class JavaNEST {
                     @Override
                     public Response intercept(Chain chain) throws IOException {
                         Request request = chain.request();
+                        /*Sometimes automatic redirects will strip out the Authorization header
+                        causing issues, this block readds the header
+                         */
                         if(request.header("Authorization") == null)
                         {
                             request = request.newBuilder()
@@ -132,7 +140,6 @@ public class JavaNEST {
                                     .build();
                         }
                         return chain.proceed(request);
-
                     }
                 })
                 .build();
@@ -149,6 +156,16 @@ public class JavaNEST {
         try
         {
             Response response = client.newCall(request).execute();
+            /*HTTP code 307 (Temporary Redirect) is not handled by the OKHTTP library so we have to handle it here
+            * Response will contain a location header that tells us where to redirect to
+            * */
+            if(response.code() == 307)
+            {
+                request = request.newBuilder()
+                        .url(response.header("Location"))
+                        .build();
+                return sendRequest(request);
+            }
             return response.body().string();
         }
         catch(IOException ex)
@@ -212,7 +229,22 @@ public class JavaNEST {
     public int getTargetHighTemp()
     {
 
-        return -1;
+        String url = String.format("%s/devices/thermostats/%s/target_temperature_high_f", this.nestURL, this.deviceID);
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("Content-Type", "application/json")
+                .build();
+
+
+        String response = sendRequest(request);
+
+        if(response.equals("Error"))
+        {
+            return -1;
+        }
+        return Integer.valueOf(response);
+
     }
 
     /**
@@ -222,7 +254,22 @@ public class JavaNEST {
      */
     public int getTargetLowTemp()
     {
-        return -1;
+
+        String url = String.format("%s/devices/thermostats/%s/target_temperature_low_f", this.nestURL, this.deviceID);
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("Content-Type", "application/json")
+                .build();
+
+        String response = sendRequest(request);
+
+        if(response.equals("Error"))
+        {
+            return -1;
+        }
+        return Integer.valueOf(response);
+
     }
 
     /**
@@ -233,6 +280,19 @@ public class JavaNEST {
      */
     public int setTargetTemp(int newTarget)
     {
+        String url = String.format("%s/devices/thermostats/%s/", this.nestURL, this.deviceID);
+
+        MediaType mediaType = MediaType.parse("application/json");
+        RequestBody body = RequestBody.create(mediaType, "{\"target_temperature_f\": 80}");
+        Request request = new Request.Builder()
+                .url(url)
+                .put(body)
+                .addHeader("Authorization", this.authToken)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("cache-control", "no-cache")
+                .build();
+
+        this.sendRequest(request);
 
         return this.getTargetTemp();
     }
@@ -244,6 +304,19 @@ public class JavaNEST {
      */
     public int setTargetHighTemp(int newTarget)
     {
+        String url = String.format("%s/devices/thermostats/%s/", this.nestURL, this.deviceID);
+
+        MediaType mediaType = MediaType.parse("application/json");
+        RequestBody body = RequestBody.create(mediaType, "{\"target_temperature_high_f\": 80}");
+        Request request = new Request.Builder()
+                .url(url)
+                .put(body)
+                .addHeader("Authorization", this.authToken)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("cache-control", "no-cache")
+                .build();
+
+        this.sendRequest(request);
 
         return this.getTargetHighTemp();
     }
@@ -255,6 +328,19 @@ public class JavaNEST {
      */
     public int setTargetLowTemp(int newTarget)
     {
+        String url = String.format("%s/devices/thermostats/%s/", this.nestURL, this.deviceID);
+
+        MediaType mediaType = MediaType.parse("application/json");
+        RequestBody body = RequestBody.create(mediaType, "{\"target_temperature_low_f\": 80}");
+        Request request = new Request.Builder()
+                .url(url)
+                .put(body)
+                .addHeader("Authorization", this.authToken)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("cache-control", "no-cache")
+                .build();
+
+        this.sendRequest(request);
 
         return this.getTargetLowTemp();
     }
